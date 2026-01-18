@@ -508,8 +508,6 @@ export class ChatGPTApi implements LLMApi {
 
   async models(): Promise<LLMModel[]> {
     const accessStore = useAccessStore.getState();
-
-    const shouldFetchModels = !!accessStore.openaiUrl;
     try {
       const res = await fetch(this.path(OpenaiPath.ListModelPath), {
         method: "GET",
@@ -529,12 +527,7 @@ export class ChatGPTApi implements LLMApi {
 
       const resJson = (await res.json()) as OpenAIListModelResponse;
 
-      // If custom endpoint is used, include all models, not just GPT models
-      const chatModels = shouldFetchModels
-        ? resJson.data || []
-        : resJson.data?.filter(
-            (m) => m.id.startsWith("gpt-") || m.id.startsWith("chatgpt-"),
-          );
+      const chatModels = resJson.data || [];
 
       console.log("[Models] Fetched from custom endpoint:", chatModels);
 
@@ -543,22 +536,20 @@ export class ChatGPTApi implements LLMApi {
       }
 
       let customProviderName = "Custom";
-      if (shouldFetchModels && accessStore.openaiUrl) {
-        try {
-          const urlStr = accessStore.openaiUrl.startsWith("http")
-            ? accessStore.openaiUrl
-            : `https://${accessStore.openaiUrl}`;
-          const url = new URL(urlStr);
-          const hostname = url.hostname;
-          const parts = hostname.split(".");
-          if (parts.length > 2) {
-            customProviderName = parts[0];
-          } else {
-            customProviderName = hostname.split(".")[0];
-          }
-        } catch (e) {
-          console.warn("[Models] Could not extract provider name from URL:", e);
+      try {
+        const urlStr = accessStore.openaiUrl.startsWith("http")
+          ? accessStore.openaiUrl
+          : `https://${accessStore.openaiUrl}`;
+        const url = new URL(urlStr);
+        const hostname = url.hostname;
+        const parts = hostname.split(".");
+        if (parts.length > 2) {
+          customProviderName = parts[0];
+        } else {
+          customProviderName = hostname.split(".")[0];
         }
+      } catch (e) {
+        console.warn("[Models] Could not extract provider name from URL:", e);
       }
 
       let seq = 1000; //同 Constant.ts 中的排序保持一致
