@@ -263,6 +263,19 @@ export class ChatGPTApi implements LLMApi {
       if (visionModel && !isO1OrO3 && ! isGpt5) {
         requestPayload["max_tokens"] = Math.max(modelConfig.max_tokens, 4000);
       }
+
+      // Add generationConfig for Gemini models when using custom endpoint
+      const accessStore = useAccessStore.getState();
+      if (
+        accessStore.useCustomConfig &&
+        modelConfig.model.toLowerCase().includes("gemini")
+      ) {
+        (requestPayload as any)["generationConfig"] = {
+          thinkingConfig: {
+            thinkingBudget: -1,
+          },
+        };
+      }
     }
 
     console.log("[Request] openai payload: ", requestPayload);
