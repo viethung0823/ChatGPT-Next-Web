@@ -116,7 +116,7 @@ import { prettyObject } from "../utils/format";
 import { ExportMessageModal } from "./exporter";
 import { getClientConfig } from "../config/client";
 import { useAllModels } from "../utils/hooks";
-import { ClientApi, MultimodalContent } from "../client/api";
+import { ClientApi, MultimodalContent, getClientApi } from "../client/api";
 import { createTTSPlayer } from "../utils/audio";
 import { MsEdgeTTS, OUTPUT_FORMAT } from "../utils/ms_edge_tts";
 
@@ -595,6 +595,28 @@ export function ChatActions(props: {
       );
     }
   }, [chatStore, currentModel, models, session]);
+
+  // Fetch models when model selector is shown
+  useEffect(() => {
+    if (showModelSelector) {
+      const accessStore = useAccessStore.getState();
+      // Use OpenAI provider if custom config is enabled with OpenAI endpoint
+      const provider =
+        accessStore.useCustomConfig && accessStore.openaiUrl
+          ? ServiceProvider.OpenAI
+          : currentProviderName;
+      const api: ClientApi = getClientApi(provider);
+      (async () => {
+        try {
+          const fetchedModels = await api.llm.models();
+          config.mergeModels(fetchedModels);
+        } catch (error) {
+          console.error("[Chat] Failed to fetch models:", error);
+        }
+      })();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showModelSelector, currentProviderName]);
 
   return (
     <div className={styles["chat-input-actions"]}>
