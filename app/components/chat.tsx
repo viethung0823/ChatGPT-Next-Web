@@ -600,10 +600,9 @@ export function ChatActions(props: {
   useEffect(() => {
     if (showModelSelector) {
       const accessStore = useAccessStore.getState();
-      const provider =
-        accessStore.useCustomConfig && accessStore.openaiUrl
-          ? ServiceProvider.OpenAI
-          : currentProviderName;
+      const provider = accessStore.openaiUrl
+        ? ServiceProvider.OpenAI
+        : currentProviderName;
       const api: ClientApi = getClientApi(provider);
       (async () => {
         try {

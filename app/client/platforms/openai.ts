@@ -509,11 +509,7 @@ export class ChatGPTApi implements LLMApi {
   async models(): Promise<LLMModel[]> {
     const accessStore = useAccessStore.getState();
 
-    // Enable model fetching when custom config is enabled and OpenAI endpoint is set
-    const shouldFetchModels =
-      accessStore.useCustomConfig && accessStore.openaiUrl;
-
-    const fetchUrl = this.path(OpenaiPath.ListModelPath);
+    const shouldFetchModels = !!accessStore.openaiUrl;
     try {
       const res = await fetch(this.path(OpenaiPath.ListModelPath), {
         method: "GET",
