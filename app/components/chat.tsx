@@ -600,7 +600,6 @@ export function ChatActions(props: {
   useEffect(() => {
     if (showModelSelector) {
       const accessStore = useAccessStore.getState();
-      // Use OpenAI provider if custom config is enabled with OpenAI endpoint
       const provider =
         accessStore.useCustomConfig && accessStore.openaiUrl
           ? ServiceProvider.OpenAI
@@ -608,15 +607,19 @@ export function ChatActions(props: {
       const api: ClientApi = getClientApi(provider);
       (async () => {
         try {
+          console.log("[Chat] Calling api.llm.models()...");
           const fetchedModels = await api.llm.models();
-          config.mergeModels(fetchedModels);
+          if (fetchedModels && fetchedModels.length > 0) {
+            config.mergeModels(fetchedModels);
+            console.log("[Chat] Models merged successfully");
+          }
         } catch (error) {
           console.error("[Chat] Failed to fetch models:", error);
         }
       })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showModelSelector, currentProviderName]);
+  }, [showModelSelector]);
 
   return (
     <div className={styles["chat-input-actions"]}>

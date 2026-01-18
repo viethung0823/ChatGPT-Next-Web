@@ -513,10 +513,7 @@ export class ChatGPTApi implements LLMApi {
     const shouldFetchModels =
       accessStore.useCustomConfig && accessStore.openaiUrl;
 
-    if (this.disableListModels && !shouldFetchModels) {
-      return DEFAULT_MODELS.slice();
-    }
-
+    const fetchUrl = this.path(OpenaiPath.ListModelPath);
     try {
       const res = await fetch(this.path(OpenaiPath.ListModelPath), {
         method: "GET",
