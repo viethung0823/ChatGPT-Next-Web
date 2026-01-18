@@ -549,14 +549,33 @@ export class ChatGPTApi implements LLMApi {
         return DEFAULT_MODELS.slice();
       }
 
+      let customProviderName = "Custom";
+      if (shouldFetchModels && accessStore.openaiUrl) {
+        try {
+          const urlStr = accessStore.openaiUrl.startsWith("http")
+            ? accessStore.openaiUrl
+            : `https://${accessStore.openaiUrl}`;
+          const url = new URL(urlStr);
+          const hostname = url.hostname;
+          const parts = hostname.split(".");
+          if (parts.length > 2) {
+            customProviderName = parts[0];
+          } else {
+            customProviderName = hostname.split(".")[0];
+          }
+        } catch (e) {
+          console.warn("[Models] Could not extract provider name from URL:", e);
+        }
+      }
+
       let seq = 1000; //同 Constant.ts 中的排序保持一致
       return chatModels.map((m) => ({
         name: m.id,
         available: true,
         sorted: seq++,
         provider: {
-          id: "openai",
-          providerName: "OpenAI",
+          id: "openai", // Keep as "openai" so it uses OpenAI API client
+          providerName: customProviderName, // Display custom name in UI (e.g., "viethung0823")
           providerType: "openai",
           sorted: 1,
         },

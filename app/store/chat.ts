@@ -464,7 +464,19 @@ export const useChatStore = createPersistStore(
           ]);
         });
 
-        const api: ClientApi = getClientApi(modelConfig.providerName);
+        const accessStore = useAccessStore.getState();
+        let provider = modelConfig.providerName;
+        if (accessStore.useCustomConfig && accessStore.openaiUrl) {
+          const isCustomProvider =
+            provider &&
+            !Object.values(ServiceProvider).includes(
+              provider as ServiceProvider,
+            );
+          if (isCustomProvider || provider === ServiceProvider.Google) {
+            provider = ServiceProvider.OpenAI;
+          }
+        }
+        const api: ClientApi = getClientApi(provider);
         // make request
         api.llm.chat({
           messages: sendMessages,

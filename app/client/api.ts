@@ -258,8 +258,16 @@ export function getHeaders(ignoreHeaders: boolean = false) {
     const modelConfig = chatStore.currentSession().mask.modelConfig;
     const useOpenAIForCustom =
       accessStore.useCustomConfig && accessStore.openaiUrl;
+
+    const isCustomProvider =
+      modelConfig.providerName &&
+      !Object.values(ServiceProvider).includes(
+        modelConfig.providerName as ServiceProvider,
+      );
+
     const isGoogle =
       !useOpenAIForCustom &&
+      !isCustomProvider &&
       modelConfig.providerName === ServiceProvider.Google;
     const isAzure = modelConfig.providerName === ServiceProvider.Azure;
     const isAnthropic = modelConfig.providerName === ServiceProvider.Anthropic;
@@ -275,35 +283,37 @@ export function getHeaders(ignoreHeaders: boolean = false) {
       modelConfig.providerName === ServiceProvider.SiliconFlow;
     const isAI302 = modelConfig.providerName === ServiceProvider["302.AI"];
     const isEnabledAccessControl = accessStore.enabledAccessControl();
-    const apiKey = useOpenAIForCustom
-      ? accessStore.openaiApiKey
-      : isGoogle
-      ? accessStore.googleApiKey
-      : isAzure
-      ? accessStore.azureApiKey
-      : isAnthropic
-      ? accessStore.anthropicApiKey
-      : isByteDance
-      ? accessStore.bytedanceApiKey
-      : isAlibaba
-      ? accessStore.alibabaApiKey
-      : isMoonshot
-      ? accessStore.moonshotApiKey
-      : isXAI
-      ? accessStore.xaiApiKey
-      : isDeepSeek
-      ? accessStore.deepseekApiKey
-      : isChatGLM
-      ? accessStore.chatglmApiKey
-      : isSiliconFlow
-      ? accessStore.siliconflowApiKey
-      : isIflytek
-      ? accessStore.iflytekApiKey && accessStore.iflytekApiSecret
-        ? accessStore.iflytekApiKey + ":" + accessStore.iflytekApiSecret
-        : ""
-      : isAI302
-      ? accessStore.ai302ApiKey
-      : accessStore.openaiApiKey;
+    // If custom provider or useOpenAIForCustom, use OpenAI API key
+    const apiKey =
+      useOpenAIForCustom || isCustomProvider
+        ? accessStore.openaiApiKey
+        : isGoogle
+        ? accessStore.googleApiKey
+        : isAzure
+        ? accessStore.azureApiKey
+        : isAnthropic
+        ? accessStore.anthropicApiKey
+        : isByteDance
+        ? accessStore.bytedanceApiKey
+        : isAlibaba
+        ? accessStore.alibabaApiKey
+        : isMoonshot
+        ? accessStore.moonshotApiKey
+        : isXAI
+        ? accessStore.xaiApiKey
+        : isDeepSeek
+        ? accessStore.deepseekApiKey
+        : isChatGLM
+        ? accessStore.chatglmApiKey
+        : isSiliconFlow
+        ? accessStore.siliconflowApiKey
+        : isIflytek
+        ? accessStore.iflytekApiKey && accessStore.iflytekApiSecret
+          ? accessStore.iflytekApiKey + ":" + accessStore.iflytekApiSecret
+          : ""
+        : isAI302
+        ? accessStore.ai302ApiKey
+        : accessStore.openaiApiKey;
     return {
       isGoogle,
       isAzure,
@@ -320,19 +330,8 @@ export function getHeaders(ignoreHeaders: boolean = false) {
       isAI302,
       apiKey,
       isEnabledAccessControl,
+      isCustomProvider,
     };
-  }
-
-  function getAuthHeader(): string {
-    const useOpenAIForCustom =
-      accessStore.useCustomConfig && accessStore.openaiUrl;
-    return isAzure
-      ? "api-key"
-      : isAnthropic
-      ? "x-api-key"
-      : isGoogle && !useOpenAIForCustom
-      ? "x-goog-api-key"
-      : "Authorization";
   }
 
   const {
@@ -351,7 +350,21 @@ export function getHeaders(ignoreHeaders: boolean = false) {
     isAI302,
     apiKey,
     isEnabledAccessControl,
+    isCustomProvider,
   } = getConfig();
+
+  function getAuthHeader(): string {
+    const useOpenAIForCustom =
+      accessStore.useCustomConfig && accessStore.openaiUrl;
+    // Custom providers and OpenAI-for-custom should use Authorization header
+    return isAzure
+      ? "api-key"
+      : isAnthropic
+      ? "x-api-key"
+      : isGoogle && !useOpenAIForCustom && !isCustomProvider
+      ? "x-goog-api-key"
+      : "Authorization";
+  }
   // when using baidu api in app, not set auth header
   if (isBaidu && clientConfig?.isApp) return headers;
 
@@ -373,11 +386,29 @@ export function getHeaders(ignoreHeaders: boolean = false) {
   return headers;
 }
 
-export function getClientApi(provider: ServiceProvider): ClientApi {
-  // If custom config is enabled and provider is Google but OpenAI endpoint is set,
-  // use OpenAI provider instead (for OpenAI-compatible proxies with gemini models)
+export function getClientApi(provider: ServiceProvider | string): ClientApi {
+  const accessStore = useAccessStore.getState();
+
+  // If custom config is enabled with OpenAI endpoint, check if provider is a custom one
+  // Custom providers from fetched models will have names like "viethung0823"
+  // Map them to OpenAI provider since they use OpenAI-compatible API
+  if (accessStore.useCustomConfig && accessStore.openaiUrl) {
+    // Check if provider is not a standard ServiceProvider enum value
+    // (custom provider names won't match ServiceProvider enum)
+    const isCustomProvider =
+      provider &&
+      !Object.values(ServiceProvider).includes(provider as ServiceProvider);
+
+    if (isCustomProvider || provider === ServiceProvider.Google) {
+      console.log(
+        `[ClientApi] Using OpenAI provider for ${provider} model with custom OpenAI endpoint`,
+      );
+      return new ClientApi(ModelProvider.GPT);
+    }
+  }
+
+  // If provider is Google but custom config is enabled, use OpenAI
   if (provider === ServiceProvider.Google) {
-    const accessStore = useAccessStore.getState();
     if (accessStore.useCustomConfig && accessStore.openaiUrl) {
       console.log(
         "[ClientApi] Using OpenAI provider for Google model with custom OpenAI endpoint",
