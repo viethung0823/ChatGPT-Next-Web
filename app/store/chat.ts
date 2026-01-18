@@ -123,10 +123,18 @@ function getSummarizeModel(
   currentModel: string,
   providerName: string,
 ): string[] {
+  const accessStore = useAccessStore.getState();
+
+  // If custom config is enabled with OpenAI endpoint, use OpenAI provider for summarization
+  // This ensures summarization goes to the custom proxy instead of Google's API
+  if (accessStore.useCustomConfig && accessStore.openaiUrl) {
+    // Use the current model with OpenAI provider for summarization
+    return [currentModel, ServiceProvider.OpenAI];
+  }
+
   // if it is using gpt-* models, force to use 4o-mini to summarize
   if (currentModel.startsWith("gpt") || currentModel.startsWith("chatgpt")) {
     const configStore = useAppConfig.getState();
-    const accessStore = useAccessStore.getState();
     const allModel = collectModelsWithDefaultModel(
       configStore.models,
       [configStore.customModels, accessStore.customModels].join(","),

@@ -11,7 +11,7 @@ import LoadingIcon from "../icons/three-dots.svg";
 import { getCSSVar, useMobileScreen } from "../utils";
 
 import dynamic from "next/dynamic";
-import { Path, SlotID } from "../constant";
+import { Path, SlotID, ServiceProvider } from "../constant";
 import { ErrorBoundary } from "./error";
 
 import { getISOLang, getLang } from "../locales";
@@ -222,8 +222,16 @@ function Screen() {
 
 export function useLoadData() {
   const config = useAppConfig();
+  const accessStore = useAccessStore();
 
-  const api: ClientApi = getClientApi(config.modelConfig.providerName);
+  // Use OpenAI provider if custom config is enabled with OpenAI endpoint
+  // (even if model provider is Google, we want to fetch from OpenAI endpoint)
+  const provider =
+    accessStore.useCustomConfig && accessStore.openaiUrl
+      ? ServiceProvider.OpenAI
+      : config.modelConfig.providerName;
+
+  const api: ClientApi = getClientApi(provider);
 
   useEffect(() => {
     (async () => {
@@ -231,7 +239,7 @@ export function useLoadData() {
       config.mergeModels(models);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [accessStore.useCustomConfig, accessStore.openaiUrl, provider]);
 }
 
 export function Home() {

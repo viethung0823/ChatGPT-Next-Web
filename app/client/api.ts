@@ -366,6 +366,18 @@ export function getHeaders(ignoreHeaders: boolean = false) {
 }
 
 export function getClientApi(provider: ServiceProvider): ClientApi {
+  // If custom config is enabled and provider is Google but OpenAI endpoint is set,
+  // use OpenAI provider instead (for OpenAI-compatible proxies with gemini models)
+  if (provider === ServiceProvider.Google) {
+    const accessStore = useAccessStore.getState();
+    if (accessStore.useCustomConfig && accessStore.openaiUrl) {
+      console.log(
+        "[ClientApi] Using OpenAI provider for Google model with custom OpenAI endpoint",
+      );
+      return new ClientApi(ModelProvider.GPT);
+    }
+  }
+
   switch (provider) {
     case ServiceProvider.Google:
       return new ClientApi(ModelProvider.GeminiPro);

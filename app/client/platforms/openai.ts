@@ -200,7 +200,7 @@ export class ChatGPTApi implements LLMApi {
       options.config.model.startsWith("o1") ||
       options.config.model.startsWith("o3") ||
       options.config.model.startsWith("o4-mini");
-    const isGpt5 =  options.config.model.startsWith("gpt-5");
+    const isGpt5 = options.config.model.startsWith("gpt-5");
     if (isDalle3) {
       const prompt = getMessageTextContent(
         options.messages.slice(-1)?.pop() as any,
@@ -231,7 +231,7 @@ export class ChatGPTApi implements LLMApi {
         messages,
         stream: options.config.stream,
         model: modelConfig.model,
-        temperature: (!isO1OrO3 && !isGpt5) ? modelConfig.temperature : 1,
+        temperature: !isO1OrO3 && !isGpt5 ? modelConfig.temperature : 1,
         presence_penalty: !isO1OrO3 ? modelConfig.presence_penalty : 0,
         frequency_penalty: !isO1OrO3 ? modelConfig.frequency_penalty : 0,
         top_p: !isO1OrO3 ? modelConfig.top_p : 1,
@@ -240,11 +240,10 @@ export class ChatGPTApi implements LLMApi {
       };
 
       if (isGpt5) {
-  	// Remove max_tokens if present
-  	delete requestPayload.max_tokens;
-  	// Add max_completion_tokens (or max_completion_tokens if that's what you meant)
-  	requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
-
+        // Remove max_tokens if present
+        delete requestPayload.max_tokens;
+        // Add max_completion_tokens (or max_completion_tokens if that's what you meant)
+        requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
       } else if (isO1OrO3) {
         // by default the o1/o3 models will not attempt to produce output that includes markdown formatting
         // manually add "Formatting re-enabled" developer message to encourage markdown inclusion in model responses
@@ -258,9 +257,8 @@ export class ChatGPTApi implements LLMApi {
         requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
       }
 
-
       // add max_tokens to vision model
-      if (visionModel && !isO1OrO3 && ! isGpt5) {
+      if (visionModel && !isO1OrO3 && !isGpt5) {
         requestPayload["max_tokens"] = Math.max(modelConfig.max_tokens, 4000);
       }
 
@@ -268,7 +266,8 @@ export class ChatGPTApi implements LLMApi {
       const accessStore = useAccessStore.getState();
       if (
         accessStore.useCustomConfig &&
-        modelConfig.model.toLowerCase().includes("gemini")
+        (modelConfig.model.toLowerCase().includes("gemini") ||
+          accessStore.openaiUrl?.includes("cliproxyapi.hf.space"))
       ) {
         (requestPayload as any)["generationConfig"] = {
           thinkingConfig: {
@@ -508,40 +507,64 @@ export class ChatGPTApi implements LLMApi {
   }
 
   async models(): Promise<LLMModel[]> {
-    if (this.disableListModels) {
+    const accessStore = useAccessStore.getState();
+
+    // Enable model fetching when custom config is enabled and OpenAI endpoint is set
+    const shouldFetchModels =
+      accessStore.useCustomConfig && accessStore.openaiUrl;
+
+    if (this.disableListModels && !shouldFetchModels) {
       return DEFAULT_MODELS.slice();
     }
 
-    const res = await fetch(this.path(OpenaiPath.ListModelPath), {
-      method: "GET",
-      headers: {
-        ...getHeaders(),
-      },
-    });
+    try {
+      const res = await fetch(this.path(OpenaiPath.ListModelPath), {
+        method: "GET",
+        headers: {
+          ...getHeaders(),
+        },
+      });
 
-    const resJson = (await res.json()) as OpenAIListModelResponse;
-    const chatModels = resJson.data?.filter(
-      (m) => m.id.startsWith("gpt-") || m.id.startsWith("chatgpt-"),
-    );
-    console.log("[Models]", chatModels);
+      if (!res.ok) {
+        console.error(
+          "[Models] Failed to fetch models:",
+          res.status,
+          res.statusText,
+        );
+        return DEFAULT_MODELS.slice();
+      }
 
-    if (!chatModels) {
-      return [];
+      const resJson = (await res.json()) as OpenAIListModelResponse;
+
+      // If custom endpoint is used, include all models, not just GPT models
+      const chatModels = shouldFetchModels
+        ? resJson.data || []
+        : resJson.data?.filter(
+            (m) => m.id.startsWith("gpt-") || m.id.startsWith("chatgpt-"),
+          );
+
+      console.log("[Models] Fetched from custom endpoint:", chatModels);
+
+      if (!chatModels || chatModels.length === 0) {
+        return DEFAULT_MODELS.slice();
+      }
+
+      let seq = 1000; //同 Constant.ts 中的排序保持一致
+      return chatModels.map((m) => ({
+        name: m.id,
+        available: true,
+        sorted: seq++,
+        provider: {
+          id: "openai",
+          providerName: "OpenAI",
+          providerType: "openai",
+          sorted: 1,
+        },
+      }));
+    } catch (e) {
+      console.error("[Models] Error fetching models:", e);
+      return DEFAULT_MODELS.slice();
     }
-
-    //由于目前 OpenAI 的 disableListModels 默认为 true，所以当前实际不会运行到这场
-    let seq = 1000; //同 Constant.ts 中的排序保持一致
-    return chatModels.map((m) => ({
-      name: m.id,
-      available: true,
-      sorted: seq++,
-      provider: {
-        id: "openai",
-        providerName: "OpenAI",
-        providerType: "openai",
-        sorted: 1,
-      },
-    }));
   }
 }
 export { OpenaiPath };
