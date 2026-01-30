@@ -123,6 +123,37 @@ export const useSyncStore = createPersistStore(
       const client = this.getClient();
       return await client.check();
     },
+
+    loadServerConfig() {
+      if (isApp) return; // Don't fetch in app mode
+
+      fetch("/api/config", {
+        method: "post",
+        body: null,
+      })
+        .then((res) => res.json())
+        .then((res: DangerConfig) => {
+          console.log("[Sync] got config from server", res);
+
+          // Auto-populate UpStash settings from environment variables
+          if (res.upstashRedisRestUrl && res.upstashRedisRestToken) {
+            set((state) => ({
+              upstash: {
+                ...state.upstash,
+                endpoint: res.upstashRedisRestUrl || state.upstash.endpoint,
+                apiKey: res.upstashRedisRestToken || state.upstash.apiKey,
+              },
+              provider: ProviderType.UpStash, // Auto-select UpStash if configured
+            }));
+            console.log(
+              "[Sync] UpStash config loaded from environment variables",
+            );
+          }
+        })
+        .catch(() => {
+          console.error("[Sync] failed to fetch server config");
+        });
+    },
   }),
   {
     name: StoreKey.Sync,

@@ -92,6 +92,10 @@ declare global {
       AI302_URL?: string;
       AI302_API_KEY?: string;
 
+      // upstash redis for sync (optional)
+      UPSTASH_REDIS_REST_URL?: string;
+      UPSTASH_REDIS_REST_TOKEN?: string;
+
       // custom template for preprocessing user input
       DEFAULT_INPUT_TEMPLATE?: string;
 
@@ -254,6 +258,9 @@ export const getServerSideConfig = () => {
     isAI302,
     ai302Url: process.env.AI302_URL,
     ai302ApiKey: getApiKey(process.env.AI302_API_KEY),
+
+    upstashRedisRestUrl: process.env.UPSTASH_REDIS_REST_URL,
+    upstashRedisRestToken: process.env.UPSTASH_REDIS_REST_TOKEN,
 
     gtmId: process.env.GTM_ID,
     gaId: process.env.GA_ID || DEFAULT_GA_ID,

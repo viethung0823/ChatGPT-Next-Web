@@ -15,6 +15,8 @@ const DANGER_CONFIG = {
   customModels: serverConfig.customModels,
   defaultModel: serverConfig.defaultModel,
   visionModels: serverConfig.visionModels,
+  upstashRedisRestUrl: serverConfig.upstashRedisRestUrl,
+  upstashRedisRestToken: serverConfig.upstashRedisRestToken,
 };
 
 declare global {
